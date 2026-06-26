@@ -66,3 +66,38 @@ async fn transcribe_real_model() {
         );
     }
 }
+
+/// `language=auto` on a multilingual model auto-detects the language instead of
+/// erroring (the old `unsupported_language` path). The bundled clip is English,
+/// so detection should land on English and still produce the expected phrase.
+#[tokio::test]
+async fn auto_detect_real_model() {
+    if std::env::var("SUPER_STT_TEST_WHISPER").is_err() {
+        return; // self-skip unless explicitly enabled
+    }
+    let backend_dir = PathBuf::from(
+        std::env::var("SUPER_STT_BACKEND_DIR")
+            .expect("SUPER_STT_BACKEND_DIR (must contain models/whisper-tiny)"),
+    );
+    let audio_path = std::env::var("SUPER_STT_TEST_AUDIO")
+        .unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/jfk.wav").to_string());
+
+    let backend = Backend::spawn(&backend_dir).await;
+    assert_eq!(backend.load("whisper-tiny", "cpu").await, 202);
+    backend
+        .wait_for_state(&["ready"], Duration::from_mins(10))
+        .await;
+
+    let (samples, sr) = read_wav_mono_f32(&audio_path);
+    let (code, body) = backend
+        .transcribe_with_language(&samples, sr, Some("auto"))
+        .await;
+    assert_eq!(code, 200, "auto transcribe failed: {body}");
+    let text = body["transcription"].as_str().unwrap_or("");
+    println!("=== WHISPER AUTO TRANSCRIPTION ===\n{text}\n==================================");
+    assert!(!text.trim().is_empty(), "expected non-empty transcription");
+    assert!(
+        text.to_lowercase().contains("ask not"),
+        "auto-detect should transcribe the English clip; got {text:?}"
+    );
+}

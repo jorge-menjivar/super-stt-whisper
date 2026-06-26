@@ -26,6 +26,19 @@ use tokenizers::Tokenizer;
 const SAMPLE_RATE: u32 = 16000;
 const MEL_FILTERS_80: &[u8] = include_bytes!("data/melfilters.bytes");
 
+/// ISO codes Whisper multilingual models can emit. Used to restrict the
+/// language-detection logits to `<|lang|>` tokens; mirrors the model card and
+/// the backend manifest's `supported_languages`.
+const WHISPER_LANGS: &[&str] = &[
+    "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it",
+    "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur",
+    "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn",
+    "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si",
+    "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo",
+    "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln",
+    "ha", "ba", "jw", "su", "yue",
+];
+
 pub struct WhisperEngine {
     model: m::model::Whisper,
     tokenizer: Tokenizer,
@@ -37,6 +50,9 @@ pub struct WhisperEngine {
     eot_token: u32,
     no_timestamps_token: u32,
     is_english_only: bool,
+    /// Token ids of the `WHISPER_LANGS` `<|lang|>` codes present in this
+    /// tokenizer; empty for `.en` models. Drives `auto` language detection.
+    language_token_ids: Vec<u32>,
 }
 
 impl WhisperEngine {
@@ -110,6 +126,17 @@ impl WhisperEngine {
             )
         };
 
+        // Precompute the language-token ids once so `auto` detection can mask
+        // the decoder logits to just `<|lang|>` candidates.
+        let language_token_ids = if is_english_only {
+            Vec::new()
+        } else {
+            WHISPER_LANGS
+                .iter()
+                .filter_map(|c| tokenizer.token_to_id(&format!("<|{c}|>")))
+                .collect()
+        };
+
         info!("Whisper model loaded on {device:?} (english_only={is_english_only})");
         Ok(Self {
             model,
@@ -122,6 +149,7 @@ impl WhisperEngine {
             eot_token,
             no_timestamps_token,
             is_english_only,
+            language_token_ids,
         })
     }
 
@@ -191,7 +219,15 @@ impl WhisperEngine {
         )
         .context("build mel tensor")?;
 
-        self.run_segmented(&mel, language, &mut on_segment)
+        // The reserved `auto` triggers Whisper's own language detection, once
+        // for the whole utterance; a `.en` model has no language to choose, so
+        // it ignores the request and runs in English.
+        let resolved = match language {
+            Some("auto") if !self.is_english_only => Some(self.detect_language(&mel)?),
+            Some("auto") => None,
+            other => other.map(str::to_string),
+        };
+        self.run_segmented(&mel, resolved.as_deref(), &mut on_segment)
     }
 
     fn run_segmented<F: FnMut(&str)>(
@@ -242,6 +278,48 @@ impl WhisperEngine {
         } else {
             Ok(String::new())
         }
+    }
+
+    /// Detect the spoken language by predicting the `<|lang|>` token from the
+    /// first ≤30 s of audio, restricted to known Whisper language tokens.
+    /// Returns the bare ISO code (e.g. `es`). Multilingual models only.
+    fn detect_language(&mut self, mel: &Tensor) -> Result<String> {
+        let (_, _, frames) = mel.dims3()?;
+        let seg = mel.narrow(2, 0, frames.min(3000))?;
+        let audio_features = self.model.encoder.forward(&seg, true)?;
+        let sot = Tensor::new(&[self.sot_token], &self.device)?.unsqueeze(0)?;
+        let ys = self.model.decoder.forward(&sot, &audio_features, true)?;
+        let (_, seq_len, _) = ys.dims3()?;
+        let logits = self
+            .model
+            .decoder
+            .final_linear(&ys.i((..1, seq_len - 1..))?)?
+            .i(0)?
+            .i(0)?;
+        // Mask everything except the `<|lang|>` candidates, then take the argmax.
+        let mut mask = vec![f32::NEG_INFINITY; self.config.vocab_size];
+        for &id in &self.language_token_ids {
+            if let Some(slot) = mask.get_mut(id as usize) {
+                *slot = 0.0;
+            }
+        }
+        let masked = logits.broadcast_add(&Tensor::new(mask.as_slice(), &self.device)?)?;
+        let scores: Vec<f32> = masked.to_vec1()?;
+        let best = scores
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.total_cmp(b))
+            .map(|(i, _)| u32::try_from(i).unwrap())
+            .ok_or_else(|| anyhow::anyhow!("language detection produced no token"))?;
+        let token = self.tokenizer.id_to_token(best).ok_or_else(|| {
+            anyhow::anyhow!("detected language token {best} missing from tokenizer")
+        })?;
+        let code = token
+            .trim_start_matches("<|")
+            .trim_end_matches("|>")
+            .to_string();
+        debug!("Whisper auto-detected language: {code}");
+        Ok(code)
     }
 
     fn decode_simple(

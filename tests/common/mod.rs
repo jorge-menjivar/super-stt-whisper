@@ -107,10 +107,23 @@ impl Backend {
     }
 
     pub async fn transcribe(&self, audio: &[f32], sample_rate: u32) -> (u16, Value) {
-        let body = serde_json::to_vec(
-            &serde_json::json!({ "audio_data": audio, "sample_rate": sample_rate }),
-        )
-        .unwrap();
+        self.transcribe_with_language(audio, sample_rate, None)
+            .await
+    }
+
+    /// Like [`Self::transcribe`], with an explicit `language` in the request
+    /// body — a BCP-47 tag or the reserved `auto`.
+    pub async fn transcribe_with_language(
+        &self,
+        audio: &[f32],
+        sample_rate: u32,
+        language: Option<&str>,
+    ) -> (u16, Value) {
+        let mut payload = serde_json::json!({ "audio_data": audio, "sample_rate": sample_rate });
+        if let Some(lang) = language {
+            payload["language"] = serde_json::Value::String(lang.to_string());
+        }
+        let body = serde_json::to_vec(&payload).unwrap();
         let (status, body) = self.request("POST", "/v1/transcribe", body).await.unwrap();
         (status, serde_json::from_slice(&body).unwrap())
     }
