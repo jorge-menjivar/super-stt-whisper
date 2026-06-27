@@ -3,13 +3,14 @@
 # Whisper (local) subprocess backend. See docs/protocol/backend/.
 
 [backend]
-    source     = "github.com/jorge-menjivar/super-stt-whisper"
-    name       = "Whisper (local)"
-    version    = "0.1.0"
-    kind       = "subprocess"
-    entrypoint = "super-stt-backend-whisper"
-    contract   = "v1"
-    license    = "GPL-3.0-only"
+    source      = "github.com/jorge-menjivar/super-stt-whisper"
+    name        = "Whisper (local)"
+    version     = "0.1.0"
+    kind        = "subprocess"
+    entrypoint  = "super-stt-backend-whisper"
+    contract    = "v1"
+    license     = "GPL-3.0-only"
+    description = "Local Whisper speech-to-text."
 
 [network]
     allowed_hosts = []
