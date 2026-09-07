@@ -3,12 +3,13 @@
 # Whisper (local) subprocess backend. See docs/protocol/backend/.
 
 [backend]
+  id          = "app.super-stt.whisper"
   source      = "github.com/jorge-menjivar/super-stt-whisper"
-  name        = "Whisper (local)"
+  name        = "Whisper"
   version     = "0.1.0"
   kind        = "subprocess"
   entrypoint  = "super-stt-backend-whisper"
-  contract    = "v1"
+  contract    = "v2"
   license     = "GPL-3.0-only"
   description = "Local Whisper speech-to-text."
 
@@ -112,6 +113,7 @@
 [[models]]
   name                   = "whisper-tiny"
   provider               = "local_whisper"
+  force_preview_support  = true
   multilingual           = true
   primary_language       = "en"
   supported_languages    = [
@@ -228,6 +230,7 @@
 [[models]]
   name                   = "whisper-tiny.en"
   provider               = "local_whisper"
+  force_preview_support  = true
   multilingual           = false
   primary_language       = "en"
   supported_languages    = ["en"]
@@ -243,6 +246,7 @@
 [[models]]
   name                   = "whisper-base"
   provider               = "local_whisper"
+  force_preview_support  = true
   multilingual           = true
   primary_language       = "en"
   supported_languages    = [
@@ -359,6 +363,7 @@
 [[models]]
   name                   = "whisper-base.en"
   provider               = "local_whisper"
+  force_preview_support  = true
   multilingual           = false
   primary_language       = "en"
   supported_languages    = ["en"]
@@ -374,6 +379,7 @@
 [[models]]
   name                   = "whisper-small"
   provider               = "local_whisper"
+  force_preview_support  = true
   multilingual           = true
   primary_language       = "en"
   supported_languages    = [
@@ -490,6 +496,7 @@
 [[models]]
   name                   = "whisper-small.en"
   provider               = "local_whisper"
+  force_preview_support  = true
   multilingual           = false
   primary_language       = "en"
   supported_languages    = ["en"]
@@ -505,6 +512,7 @@
 [[models]]
   name                   = "whisper-medium"
   provider               = "local_whisper"
+  force_preview_support  = true
   multilingual           = true
   primary_language       = "en"
   supported_languages    = [
@@ -621,6 +629,7 @@
 [[models]]
   name                   = "whisper-medium.en"
   provider               = "local_whisper"
+  force_preview_support  = true
   multilingual           = false
   primary_language       = "en"
   supported_languages    = ["en"]
@@ -636,6 +645,7 @@
 [[models]]
   name                   = "whisper-large"
   provider               = "local_whisper"
+  force_preview_support  = true
   multilingual           = true
   primary_language       = "en"
   supported_languages    = [
