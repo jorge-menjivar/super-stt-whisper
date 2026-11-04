@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-#:schema https://jorge-menjivar.github.io/super-stt/backend.schema.json
+#:schema https://jorge-menjivar.github.io/super-voice/backend.schema.json
 # Whisper (local) subprocess backend. See docs/protocol/backend/.
 
 [backend]
@@ -9,7 +9,8 @@
   version     = "0.1.1"
   kind        = "subprocess"
   entrypoint  = "super-stt-backend-whisper"
-  contract    = "v2"
+  product     = "super-voice"
+  contract    = "v1"
   license     = "GPL-3.0-only"
   description = "Local Whisper speech-to-text."
 
@@ -112,6 +113,7 @@
 
 [[models]]
   name                   = "whisper-tiny"
+  role                   = "transcription"
   provider               = "local_whisper"
   force_preview_support  = true
   multilingual           = true
@@ -229,6 +231,7 @@
 
 [[models]]
   name                   = "whisper-tiny.en"
+  role                   = "transcription"
   provider               = "local_whisper"
   force_preview_support  = true
   multilingual           = false
@@ -245,6 +248,7 @@
 
 [[models]]
   name                   = "whisper-base"
+  role                   = "transcription"
   provider               = "local_whisper"
   force_preview_support  = true
   multilingual           = true
@@ -362,6 +366,7 @@
 
 [[models]]
   name                   = "whisper-base.en"
+  role                   = "transcription"
   provider               = "local_whisper"
   force_preview_support  = true
   multilingual           = false
@@ -378,6 +383,7 @@
 
 [[models]]
   name                   = "whisper-small"
+  role                   = "transcription"
   provider               = "local_whisper"
   force_preview_support  = true
   multilingual           = true
@@ -495,6 +501,7 @@
 
 [[models]]
   name                   = "whisper-small.en"
+  role                   = "transcription"
   provider               = "local_whisper"
   force_preview_support  = true
   multilingual           = false
@@ -511,6 +518,7 @@
 
 [[models]]
   name                   = "whisper-medium"
+  role                   = "transcription"
   provider               = "local_whisper"
   force_preview_support  = true
   multilingual           = true
@@ -628,6 +636,7 @@
 
 [[models]]
   name                   = "whisper-medium.en"
+  role                   = "transcription"
   provider               = "local_whisper"
   force_preview_support  = true
   multilingual           = false
@@ -644,6 +653,7 @@
 
 [[models]]
   name                   = "whisper-large"
+  role                   = "transcription"
   provider               = "local_whisper"
   force_preview_support  = true
   multilingual           = true
