@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Whisper subprocess backend: serves the Super STT `/v1` contract over a
-//! pathname Unix socket (`SUPER_STT_BACKEND_SOCKET`), loading the model from
-//! `SUPER_STT_BACKEND_DIR/models/<name>`. Self-contained — no super-stt deps.
+//! pathname Unix socket (`SUPER_VOICE_BACKEND_SOCKET`), loading the model from
+//! `SUPER_VOICE_BACKEND_DIR/models/<name>`. Self-contained — no super-stt deps.
 
 #![allow(clippy::doc_markdown)]
 
@@ -78,10 +78,10 @@ struct AppState {
 async fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    let socket = std::env::var("SUPER_STT_BACKEND_SOCKET")
-        .context("SUPER_STT_BACKEND_SOCKET must be set")?;
+    let socket = std::env::var("SUPER_VOICE_BACKEND_SOCKET")
+        .context("SUPER_VOICE_BACKEND_SOCKET must be set")?;
     let backend_dir =
-        std::env::var("SUPER_STT_BACKEND_DIR").context("SUPER_STT_BACKEND_DIR must be set")?;
+        std::env::var("SUPER_VOICE_BACKEND_DIR").context("SUPER_VOICE_BACKEND_DIR must be set")?;
 
     let state = Arc::new(AppState {
         backend_dir: PathBuf::from(backend_dir),

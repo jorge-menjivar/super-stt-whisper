@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Gated real-model E2E over the `/v1` socket. Provision `models/whisper-tiny`
-//! under SUPER_STT_BACKEND_DIR, then run (Whisper runs on CPU, so no GPU needed):
-//!   SUPER_STT_TEST_WHISPER=1 SUPER_STT_BACKEND_DIR=<dir> \
+//! under SUPER_VOICE_BACKEND_DIR, then run (Whisper runs on CPU, so no GPU needed):
+//!   SUPER_STT_TEST_WHISPER=1 SUPER_VOICE_BACKEND_DIR=<dir> \
 //!   cargo test --test transcribe_e2e -- --nocapture
 //!
 //! Audio defaults to the bundled tests/data/jfk.wav; override with
@@ -37,12 +37,12 @@ async fn transcribe_real_model() {
         return; // self-skip unless explicitly enabled
     }
     let backend_dir = PathBuf::from(
-        std::env::var("SUPER_STT_BACKEND_DIR")
-            .expect("SUPER_STT_BACKEND_DIR (must contain models/whisper-tiny)"),
+        std::env::var("SUPER_VOICE_BACKEND_DIR")
+            .expect("SUPER_VOICE_BACKEND_DIR (must contain models/whisper-tiny)"),
     );
     assert!(
         backend_dir.join("models/whisper-tiny").exists(),
-        "provision models/whisper-tiny under SUPER_STT_BACKEND_DIR first"
+        "provision models/whisper-tiny under SUPER_VOICE_BACKEND_DIR first"
     );
     let audio_path = std::env::var("SUPER_STT_TEST_AUDIO")
         .unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/jfk.wav").to_string());
@@ -76,8 +76,8 @@ async fn auto_detect_real_model() {
         return; // self-skip unless explicitly enabled
     }
     let backend_dir = PathBuf::from(
-        std::env::var("SUPER_STT_BACKEND_DIR")
-            .expect("SUPER_STT_BACKEND_DIR (must contain models/whisper-tiny)"),
+        std::env::var("SUPER_VOICE_BACKEND_DIR")
+            .expect("SUPER_VOICE_BACKEND_DIR (must contain models/whisper-tiny)"),
     );
     let audio_path = std::env::var("SUPER_STT_TEST_AUDIO")
         .unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/jfk.wav").to_string());
