@@ -28,6 +28,10 @@
   # the terms joined with commas, then the prompt.
   context = true
 
+# The CUDA builds run on the CPU too (candle picks the device at load), so they
+# list both: a model on one moves to the CPU without installing the CPU build.
+# The CPU build is for machines without CUDA, which the daemon gives it over a
+# CUDA build that would also run there.
 [[assets.subprocess]]
   file   = "whisper-x86_64-unknown-linux-gnu-cpu.tar.gz"
   target = "x86_64-unknown-linux-gnu"
@@ -36,84 +40,84 @@
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda12-sm75.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 12
   cuda_sm    = 75
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda12-sm80.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 12
   cuda_sm    = 80
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda12-sm86.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 12
   cuda_sm    = 86
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda12-sm89.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 12
   cuda_sm    = 89
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda12-sm90.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 12
   cuda_sm    = 90
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda13-sm75.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 13
   cuda_sm    = 75
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda13-sm80.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 13
   cuda_sm    = 80
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda13-sm86.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 13
   cuda_sm    = 86
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda13-sm89.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 13
   cuda_sm    = 89
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda13-sm90.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 13
   cuda_sm    = 90
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda13-sm100.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 13
   cuda_sm    = 100
 
 [[assets.subprocess]]
   file       = "whisper-x86_64-unknown-linux-gnu-cuda13-sm120.tar.gz"
   target     = "x86_64-unknown-linux-gnu"
-  accel      = "cuda"
+  accel      = ["cuda", "cpu"]
   cuda_major = 13
   cuda_sm    = 120
 
