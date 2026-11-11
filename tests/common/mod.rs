@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Minimal "mock daemon": spawns the real backend binary and drives the `/v1`
 //! contract over the Unix socket the same way the daemon does. Self-contained —
-//! no `super-stt` dependency.
+//! no Super Voice dependency.
 
 #![allow(dead_code)] // each test file uses a subset
 
@@ -24,15 +24,26 @@ pub struct Backend {
 }
 
 impl Backend {
-    /// Spawn the backend binary against `backend_dir`; wait until `/v1/ping` answers.
+    /// Spawn the backend binary against `backend_dir`, as a Super Voice daemon
+    /// does; wait until `/v1/ping` answers.
     pub async fn spawn(backend_dir: &Path) -> Backend {
+        Self::spawn_with_prefix(backend_dir, "SUPER_VOICE").await
+    }
+
+    /// Like [`Self::spawn`], with the variables a Super STT daemon sets, which
+    /// are spelled `SUPER_STT_BACKEND_*` and nothing else.
+    pub async fn spawn_as_super_stt(backend_dir: &Path) -> Backend {
+        Self::spawn_with_prefix(backend_dir, "SUPER_STT").await
+    }
+
+    async fn spawn_with_prefix(backend_dir: &Path, prefix: &str) -> Backend {
         let idx = SOCKET_COUNTER.fetch_add(1, Ordering::Relaxed);
         let socket =
             std::env::temp_dir().join(format!("whisper-test-{}-{idx}.sock", std::process::id()));
         let _ = std::fs::remove_file(&socket);
-        let child = Command::new(env!("CARGO_BIN_EXE_super-stt-backend-whisper"))
-            .env("SUPER_STT_BACKEND_SOCKET", &socket)
-            .env("SUPER_STT_BACKEND_DIR", backend_dir)
+        let child = Command::new(env!("CARGO_BIN_EXE_super-voice-backend-whisper"))
+            .env(format!("{prefix}_BACKEND_SOCKET"), &socket)
+            .env(format!("{prefix}_BACKEND_DIR"), backend_dir)
             .env("RUST_LOG", "warn")
             .spawn()
             .expect("spawn backend binary");

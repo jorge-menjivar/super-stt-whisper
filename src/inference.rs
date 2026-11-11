@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! Self-contained Whisper inference on candle + tokenizers. No super-stt deps.
+//! Self-contained Whisper inference on candle + tokenizers. No Super Voice deps.
 //!
 //! Ported from `reference/in-tree-models/local/whisper/model.rs` with the
-//! super-stt wrappers stripped. Two correctness fixes vs. the reference:
+//! Super STT wrappers stripped. Two correctness fixes vs. the reference:
 //!
 //! 1. The decoder prompt is built by model capability — `.en` variants emit
 //!    `[sot, no_timestamps]` (no language or task token), matching OpenAI's
@@ -10,6 +10,11 @@
 //!    `<|transcribe|>`, which produced empty/garbage output for `.en` models.
 //! 2. The temperature-fallback no longer rejects results shorter than 6
 //!    characters; any non-empty decode is accepted.
+//!
+//! The user's dictation context, when there is one, is the decoder's previous
+//! text: `<|startofprev|>` and its tokens ahead of the start-of-transcript
+//! sequence, as OpenAI's decoder places an `initial_prompt`. Only the tokens
+//! decoded after that sequence are the transcription.
 
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -23,7 +28,11 @@ use candle_transformers::models::whisper::{self as m, Config, audio};
 use log::{debug, info, warn};
 use tokenizers::Tokenizer;
 
+use crate::context;
+
 const SAMPLE_RATE: u32 = 16000;
+/// The token that opens the previous text a decode is conditioned on.
+const STARTOFPREV_TOKEN: &str = "<|startofprev|>";
 const MEL_FILTERS_80: &[u8] = include_bytes!("data/melfilters.bytes");
 
 /// ISO codes Whisper multilingual models can emit. Used to restrict the
@@ -46,6 +55,7 @@ pub struct WhisperEngine {
     config: Config,
     mel_filters: Vec<f32>,
     sot_token: u32,
+    startofprev_token: u32,
     transcribe_token: Option<u32>,
     eot_token: u32,
     no_timestamps_token: u32,
@@ -115,6 +125,9 @@ impl WhisperEngine {
         let no_timestamps_token = tokenizer
             .token_to_id(m::NO_TIMESTAMPS_TOKEN)
             .ok_or_else(|| anyhow::anyhow!("missing no_timestamps token"))?;
+        let startofprev_token = tokenizer
+            .token_to_id(STARTOFPREV_TOKEN)
+            .ok_or_else(|| anyhow::anyhow!("missing startofprev token"))?;
 
         let transcribe_token = if is_english_only {
             None
@@ -145,6 +158,7 @@ impl WhisperEngine {
             config,
             mel_filters,
             sot_token,
+            startofprev_token,
             transcribe_token,
             eot_token,
             no_timestamps_token,
@@ -166,7 +180,8 @@ impl WhisperEngine {
     }
 
     /// One-shot transcription. Runs segmented decoding and returns the joined
-    /// transcription.
+    /// transcription. `context` is the user's dictation context, folded by
+    /// [`context::fold`]; empty for none.
     ///
     /// # Errors
     ///
@@ -176,8 +191,9 @@ impl WhisperEngine {
         audio_data: &[f32],
         sample_rate: u32,
         language: Option<&str>,
+        context: &str,
     ) -> Result<String> {
-        self.transcribe_streaming(audio_data, sample_rate, language, |_| {})
+        self.transcribe_streaming(audio_data, sample_rate, language, context, |_| {})
     }
 
     /// Streaming variant — `on_segment` is called with the accumulated
@@ -186,13 +202,15 @@ impl WhisperEngine {
     ///
     /// # Errors
     ///
-    /// Returns an error if mel extraction or decoding fails, or — for
-    /// multilingual models — if `language` is not a known whisper code.
+    /// Returns an error if mel extraction or decoding fails, if the context
+    /// does not tokenize, or — for multilingual models — if `language` is not
+    /// a known whisper code.
     pub fn transcribe_streaming<F: FnMut(&str)>(
         &mut self,
         audio_data: &[f32],
         sample_rate: u32,
         language: Option<&str>,
+        context: &str,
         mut on_segment: F,
     ) -> Result<String> {
         debug!(
@@ -227,13 +245,39 @@ impl WhisperEngine {
             Some("auto") => None,
             other => other.map(str::to_string),
         };
-        self.run_segmented(&mel, resolved.as_deref(), &mut on_segment)
+        let prompt = self.prompt_tokens(context)?;
+        self.run_segmented(&mel, resolved.as_deref(), &prompt, &mut on_segment)
+    }
+
+    /// The dictation context as the tokens that follow `<|startofprev|>`.
+    ///
+    /// Whisper's decoder holds `max_target_positions` tokens, and OpenAI's
+    /// decoder gives the previous text at most half of them, less one, so the
+    /// transcription keeps the other half: 223 tokens on every Whisper model.
+    /// [`context::fit`] keeps the start of a longer context, cut at a word.
+    fn prompt_tokens(&self, context: &str) -> Result<Vec<u32>> {
+        if context.trim().is_empty() {
+            return Ok(Vec::new());
+        }
+        let max = self.config.max_target_positions / 2 - 1;
+        let kept = context::fit(&self.tokenizer, context, max)?;
+        // A prompt carries the leading space a word in running text has, as
+        // OpenAI's decoder encodes one.
+        let encoding = self
+            .tokenizer
+            .encode(format!(" {kept}"), false)
+            .map_err(|e| anyhow::anyhow!("tokenizing the dictation context: {e}"))?;
+        let mut ids = encoding.get_ids().to_vec();
+        ids.truncate(max);
+        debug!("prompting with {} tokens of dictation context", ids.len());
+        Ok(ids)
     }
 
     fn run_segmented<F: FnMut(&str)>(
         &mut self,
         mel: &Tensor,
         language: Option<&str>,
+        prompt: &[u32],
         on_segment: &mut F,
     ) -> Result<String> {
         let (_, _, content_frames) = mel.dims3()?;
@@ -245,7 +289,7 @@ impl WhisperEngine {
             let segment_size = usize::min(content_frames - seek, n_frames);
             let mel_segment = mel.narrow(2, seek, segment_size)?;
 
-            let segment_text = self.decode_with_fallback(&mel_segment, language)?;
+            let segment_text = self.decode_with_fallback(&mel_segment, language, prompt)?;
             if !segment_text.trim().is_empty() {
                 segments.push(segment_text);
                 let joined = segments.join(" ").trim().to_string();
@@ -261,12 +305,13 @@ impl WhisperEngine {
         &mut self,
         mel_segment: &Tensor,
         language: Option<&str>,
+        prompt: &[u32],
     ) -> Result<String> {
         let temperatures = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0];
         let mut last_err: Option<anyhow::Error> = None;
 
         for &t in &temperatures {
-            match self.decode_simple(mel_segment, t, language) {
+            match self.decode_simple(mel_segment, t, language, prompt) {
                 Ok(result) if !result.trim().is_empty() => return Ok(result),
                 Ok(_) => {}
                 Err(e) => last_err = Some(e),
@@ -322,11 +367,15 @@ impl WhisperEngine {
         Ok(code)
     }
 
+    /// Decode one segment. A non-empty `prompt` goes ahead of the
+    /// start-of-transcript sequence as the previous text, and is not part of
+    /// what is returned.
     fn decode_simple(
         &mut self,
         mel: &Tensor,
         temperature: f64,
         language: Option<&str>,
+        prompt: &[u32],
     ) -> Result<String> {
         let audio_features = self.model.encoder.forward(mel, true)?;
 
@@ -342,7 +391,12 @@ impl WhisperEngine {
         let suppress_tokens_tensor = Tensor::new(suppress_tokens.as_slice(), &self.device)?;
 
         let sample_len = self.config.max_target_positions / 2;
-        let mut tokens = vec![self.sot_token];
+        let mut tokens = Vec::with_capacity(prompt.len() + 5 + sample_len);
+        if !prompt.is_empty() {
+            tokens.push(self.startofprev_token);
+            tokens.extend_from_slice(prompt);
+        }
+        tokens.push(self.sot_token);
 
         if !self.is_english_only {
             let lang_code = language.unwrap_or("en");
@@ -358,6 +412,7 @@ impl WhisperEngine {
             );
         }
         tokens.push(self.no_timestamps_token);
+        let transcript_start = tokens.len();
 
         for i in 0..sample_len {
             let tokens_t = Tensor::new(tokens.as_slice(), mel.device())?.unsqueeze(0)?;
@@ -400,7 +455,7 @@ impl WhisperEngine {
 
         let text = self
             .tokenizer
-            .decode(&tokens, true)
+            .decode(&tokens[transcript_start..], true)
             .map_err(|e| anyhow::anyhow!("tokenizer decode: {e}"))?;
         Ok(text.trim_start().to_string())
     }

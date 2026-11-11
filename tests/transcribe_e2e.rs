@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Gated real-model E2E over the `/v1` socket. Provision `models/whisper-tiny`
-//! under SUPER_STT_BACKEND_DIR, then run (Whisper runs on CPU, so no GPU needed):
-//!   SUPER_STT_TEST_WHISPER=1 SUPER_STT_BACKEND_DIR=<dir> \
+//! under SUPER_VOICE_BACKEND_DIR, then run (Whisper runs on CPU, so no GPU needed):
+//!   SUPER_VOICE_TEST_WHISPER=1 SUPER_VOICE_BACKEND_DIR=<dir> \
 //!   cargo test --test transcribe_e2e -- --nocapture
 //!
 //! Audio defaults to the bundled tests/data/jfk.wav; override with
-//! SUPER_STT_TEST_AUDIO=<wav>. Set SUPER_STT_TEST_EXPECT=<substr> to assert the
+//! SUPER_VOICE_TEST_AUDIO=<wav>. Set SUPER_VOICE_TEST_EXPECT=<substr> to assert the
 //! transcription contains a phrase (the bundled clip is the JFK "ask not" line).
 
 #![allow(clippy::doc_markdown)] // env var names in shell-command doc comment
@@ -33,18 +33,18 @@ fn read_wav_mono_f32(path: &str) -> (Vec<f32>, u32) {
 
 #[tokio::test]
 async fn transcribe_real_model() {
-    if std::env::var("SUPER_STT_TEST_WHISPER").is_err() {
+    if std::env::var("SUPER_VOICE_TEST_WHISPER").is_err() {
         return; // self-skip unless explicitly enabled
     }
     let backend_dir = PathBuf::from(
-        std::env::var("SUPER_STT_BACKEND_DIR")
-            .expect("SUPER_STT_BACKEND_DIR (must contain models/whisper-tiny)"),
+        std::env::var("SUPER_VOICE_BACKEND_DIR")
+            .expect("SUPER_VOICE_BACKEND_DIR (must contain models/whisper-tiny)"),
     );
     assert!(
         backend_dir.join("models/whisper-tiny").exists(),
-        "provision models/whisper-tiny under SUPER_STT_BACKEND_DIR first"
+        "provision models/whisper-tiny under SUPER_VOICE_BACKEND_DIR first"
     );
-    let audio_path = std::env::var("SUPER_STT_TEST_AUDIO")
+    let audio_path = std::env::var("SUPER_VOICE_TEST_AUDIO")
         .unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/jfk.wav").to_string());
 
     let backend = Backend::spawn(&backend_dir).await;
@@ -59,7 +59,7 @@ async fn transcribe_real_model() {
     let text = body["transcription"].as_str().unwrap_or("");
     println!("=== WHISPER TRANSCRIPTION ===\n{text}\n=============================");
     assert!(!text.trim().is_empty(), "expected non-empty transcription");
-    if let Ok(expect) = std::env::var("SUPER_STT_TEST_EXPECT") {
+    if let Ok(expect) = std::env::var("SUPER_VOICE_TEST_EXPECT") {
         assert!(
             text.to_lowercase().contains(&expect.to_lowercase()),
             "transcription {text:?} did not contain {expect:?}"
@@ -72,14 +72,14 @@ async fn transcribe_real_model() {
 /// so detection should land on English and still produce the expected phrase.
 #[tokio::test]
 async fn auto_detect_real_model() {
-    if std::env::var("SUPER_STT_TEST_WHISPER").is_err() {
+    if std::env::var("SUPER_VOICE_TEST_WHISPER").is_err() {
         return; // self-skip unless explicitly enabled
     }
     let backend_dir = PathBuf::from(
-        std::env::var("SUPER_STT_BACKEND_DIR")
-            .expect("SUPER_STT_BACKEND_DIR (must contain models/whisper-tiny)"),
+        std::env::var("SUPER_VOICE_BACKEND_DIR")
+            .expect("SUPER_VOICE_BACKEND_DIR (must contain models/whisper-tiny)"),
     );
-    let audio_path = std::env::var("SUPER_STT_TEST_AUDIO")
+    let audio_path = std::env::var("SUPER_VOICE_TEST_AUDIO")
         .unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/jfk.wav").to_string());
 
     let backend = Backend::spawn(&backend_dir).await;

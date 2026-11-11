@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Standalone Whisper subprocess backend. Depends only on third-party crates —
-# no super-stt code. Its own workspace root, with its own Cargo.lock.
+# no Super Voice code. Its own workspace root, with its own Cargo.lock.
 #
-# Cargo auto-discovers two targets: the `super_stt_backend_whisper` lib from
-# src/lib.rs (used by the tests) and the `super-stt-backend-whisper` bin from
+# Cargo auto-discovers two targets: the `super_voice_backend_whisper` lib from
+# src/lib.rs (used by the tests) and the `super-voice-backend-whisper` bin from
 # src/main.rs (the subprocess entrypoint).
 [package]
-  name    = "super-stt-backend-whisper"
-  version = "0.1.1"
+  name    = "super-voice-backend-whisper"
+  version = "0.2.0"
   edition = "2024"
   license = "GPL-3.0-only"
   publish = false
