@@ -5,4 +5,5 @@
 
 #![allow(clippy::doc_markdown)]
 
+pub mod context;
 pub mod inference;

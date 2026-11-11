@@ -27,6 +27,7 @@ use serde_json::{Value, json};
 use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 
+use super_stt_backend_whisper::context;
 use super_stt_backend_whisper::inference::WhisperEngine;
 
 /// This backend implements exactly one provider (the model routing class every
@@ -259,7 +260,7 @@ struct TranscribeReq {
 
 async fn transcribe(
     State(s): State<Arc<AppState>>,
-    _headers: HeaderMap,
+    headers: HeaderMap,
     Json(req): Json<TranscribeReq>,
 ) -> Response {
     if !matches!(s.status.lock().unwrap().state, LoadState::Ready) {
@@ -282,11 +283,13 @@ async fn transcribe(
     let sample_rate = req.sample_rate.unwrap_or(16000);
     let audio = req.audio_data;
     let language = req.language;
+    // The daemon's, not the caller's: read from the headers, not the body.
+    let context = context::from_headers(&headers);
 
     if req.options.stream_realtime {
-        transcribe_streaming(s, audio, sample_rate, language)
+        transcribe_streaming(s, audio, sample_rate, language, context)
     } else {
-        transcribe_oneshot(s, audio, sample_rate, language).await
+        transcribe_oneshot(s, audio, sample_rate, language, context).await
     }
 }
 
@@ -295,6 +298,7 @@ async fn transcribe_oneshot(
     audio: Vec<f32>,
     sample_rate: u32,
     language: Option<String>,
+    context: String,
 ) -> Response {
     let s2 = Arc::clone(&s);
     let result = tokio::task::spawn_blocking(move || {
@@ -302,7 +306,7 @@ async fn transcribe_oneshot(
         let engine = guard
             .as_mut()
             .ok_or_else(|| anyhow::anyhow!("engine not loaded"))?;
-        engine.transcribe(&audio, sample_rate, language.as_deref())
+        engine.transcribe(&audio, sample_rate, language.as_deref(), &context)
     })
     .await;
     match result {
@@ -345,6 +349,7 @@ fn transcribe_streaming(
     audio: Vec<f32>,
     sample_rate: u32,
     language: Option<String>,
+    context: String,
 ) -> Response {
     let (tx, mut rx) = mpsc::unbounded_channel::<SseFrame>();
     let s2 = Arc::clone(&s);
@@ -356,9 +361,10 @@ fn transcribe_streaming(
             let _ = tx.send(SseFrame::Error("engine not loaded".to_string()));
             return;
         };
-        let result = engine.transcribe_streaming(&audio, sample_rate, language.as_deref(), |t| {
-            let _ = preview_tx.send(SseFrame::Preview(t.to_string()));
-        });
+        let result =
+            engine.transcribe_streaming(&audio, sample_rate, language.as_deref(), &context, |t| {
+                let _ = preview_tx.send(SseFrame::Preview(t.to_string()));
+            });
         match result {
             Ok(text) => {
                 let _ = tx.send(SseFrame::Done(text));
