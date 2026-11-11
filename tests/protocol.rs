@@ -24,6 +24,16 @@ async fn ping_and_starting_state() {
     assert_eq!(s["state"], "starting", "no load yet → starting");
 }
 
+/// A Super STT daemon sets only `SUPER_STT_BACKEND_*`; the backend still finds
+/// its socket and its directory under those names.
+#[tokio::test]
+async fn a_super_stt_daemons_variables_still_work() {
+    let dir = tempfile::tempdir().unwrap();
+    let backend = Backend::spawn_as_super_stt(dir.path()).await;
+    let s = backend.status().await;
+    assert_eq!(s["state"], "starting");
+}
+
 #[tokio::test]
 async fn load_without_weights_reports_error() {
     let dir = tempfile::tempdir().unwrap(); // no models/ subdir

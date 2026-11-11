@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! Whisper subprocess backend: serves the Super STT `/v1` contract over a
-//! pathname Unix socket (`SUPER_STT_BACKEND_SOCKET`), loading the model from
-//! `SUPER_STT_BACKEND_DIR/models/<name>`. Self-contained — no super-stt deps.
+//! Whisper subprocess backend: serves the Super Voice `/v1` contract over a
+//! pathname Unix socket (`SUPER_VOICE_BACKEND_SOCKET`), loading the model from
+//! `SUPER_VOICE_BACKEND_DIR/models/<name>`. A Super STT daemon sets those as
+//! `SUPER_STT_BACKEND_*`, which are read when the others are not set.
+//! Self-contained — no Super Voice deps.
 
 #![allow(clippy::doc_markdown)]
 
 use std::convert::Infallible;
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -30,6 +33,22 @@ use super_stt_backend_whisper::inference::WhisperEngine;
 /// one of its models declares). A `/v1/load` naming any other provider is
 /// `400 invalid_model` per docs/protocol/backend/contract.md.
 const PROVIDER: &str = "local_whisper";
+
+/// Names the Unix socket to bind.
+const ENV_SOCKET: &str = "SUPER_VOICE_BACKEND_SOCKET";
+/// Names the backend's own directory, which holds the downloaded weights.
+const ENV_DIR: &str = "SUPER_VOICE_BACKEND_DIR";
+
+/// One of the `ENV_*` variables, or its Super STT spelling when it is not set.
+///
+/// A Super Voice daemon sets both spellings. A Super STT daemon sets only
+/// `SUPER_STT_BACKEND_*`, and its releases are still installed.
+fn backend_var(name: &str) -> Option<OsString> {
+    std::env::var_os(name).or_else(|| {
+        let rest = name.strip_prefix("SUPER_VOICE_")?;
+        std::env::var_os(format!("SUPER_STT_{rest}"))
+    })
+}
 
 #[derive(Clone, Copy)]
 enum LoadState {
@@ -78,10 +97,9 @@ struct AppState {
 async fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    let socket = std::env::var("SUPER_STT_BACKEND_SOCKET")
-        .context("SUPER_STT_BACKEND_SOCKET must be set")?;
-    let backend_dir =
-        std::env::var("SUPER_STT_BACKEND_DIR").context("SUPER_STT_BACKEND_DIR must be set")?;
+    let socket =
+        PathBuf::from(backend_var(ENV_SOCKET).context("SUPER_VOICE_BACKEND_SOCKET must be set")?);
+    let backend_dir = backend_var(ENV_DIR).context("SUPER_VOICE_BACKEND_DIR must be set")?;
 
     let state = Arc::new(AppState {
         backend_dir: PathBuf::from(backend_dir),
@@ -91,12 +109,13 @@ async fn main() -> anyhow::Result<()> {
 
     let app = router(state);
 
-    if let Some(parent) = std::path::Path::new(&socket).parent() {
+    if let Some(parent) = socket.parent() {
         std::fs::create_dir_all(parent).ok();
     }
     let _ = std::fs::remove_file(&socket);
-    let listener = UnixListener::bind(&socket).with_context(|| format!("bind {socket}"))?;
-    log::info!("whisper backend serving /v1 on {socket}");
+    let listener =
+        UnixListener::bind(&socket).with_context(|| format!("bind {}", socket.display()))?;
+    log::info!("whisper backend serving /v1 on {}", socket.display());
 
     loop {
         let (stream, _) = listener.accept().await?;
