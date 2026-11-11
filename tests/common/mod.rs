@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //! Minimal "mock daemon": spawns the real backend binary and drives the `/v1`
 //! contract over the Unix socket the same way the daemon does. Self-contained —
-//! no `super-stt` dependency.
+//! no Super Voice dependency.
 
 #![allow(dead_code)] // each test file uses a subset
 
@@ -41,7 +41,7 @@ impl Backend {
         let socket =
             std::env::temp_dir().join(format!("whisper-test-{}-{idx}.sock", std::process::id()));
         let _ = std::fs::remove_file(&socket);
-        let child = Command::new(env!("CARGO_BIN_EXE_super-stt-backend-whisper"))
+        let child = Command::new(env!("CARGO_BIN_EXE_super-voice-backend-whisper"))
             .env(format!("{prefix}_BACKEND_SOCKET"), &socket)
             .env(format!("{prefix}_BACKEND_DIR"), backend_dir)
             .env("RUST_LOG", "warn")

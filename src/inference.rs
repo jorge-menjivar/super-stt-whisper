@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! Self-contained Whisper inference on candle + tokenizers. No super-stt deps.
+//! Self-contained Whisper inference on candle + tokenizers. No Super Voice deps.
 //!
 //! Ported from `reference/in-tree-models/local/whisper/model.rs` with the
-//! super-stt wrappers stripped. Two correctness fixes vs. the reference:
+//! Super STT wrappers stripped. Two correctness fixes vs. the reference:
 //!
 //! 1. The decoder prompt is built by model capability — `.en` variants emit
 //!    `[sot, no_timestamps]` (no language or task token), matching OpenAI's

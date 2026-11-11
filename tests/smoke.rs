@@ -11,12 +11,12 @@ use std::path::{Path, PathBuf};
 
 use hound::WavReader;
 use reqwest::blocking::Client;
-use super_stt_backend_whisper::inference::WhisperEngine;
+use super_voice_backend_whisper::inference::WhisperEngine;
 
 fn cache_dir() -> PathBuf {
     dirs::cache_dir()
         .expect("cache dir")
-        .join("super-stt-whisper-test")
+        .join("super-voice-whisper-test")
 }
 
 fn ensure_model(name: &str, repo: &str) -> PathBuf {
@@ -116,9 +116,9 @@ fn a_long_context_is_cut_to_whole_terms_within_the_budget() {
     let dir = ensure_model("whisper-tiny", "openai/whisper-tiny");
     let tokenizer = tokenizers::Tokenizer::from_file(dir.join("tokenizer.json")).unwrap();
     let terms: Vec<String> = (0..300).map(|i| format!("Term{i}")).collect();
-    let context = super_stt_backend_whisper::context::fold(Some("Notes."), &terms);
+    let context = super_voice_backend_whisper::context::fold(Some("Notes."), &terms);
 
-    let kept = super_stt_backend_whisper::context::fit(&tokenizer, &context, 223).unwrap();
+    let kept = super_voice_backend_whisper::context::fit(&tokenizer, &context, 223).unwrap();
     assert!(
         kept.starts_with("Term0, Term1,"),
         "the start is kept: {kept:?}"

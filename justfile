@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Task runner for the standalone Whisper backend. Mirrors the recipe names used
-# by the main super-stt repo (`just check`, etc.).
+# by the main Super Voice repo (`just check`, etc.).
 
 # Default: build release
 default: build-release
@@ -19,10 +19,10 @@ build-release *args:
 # same name, so a local install and a published one stage the same bytes under
 # the same name. Usage: just stage [--features cuda]
 stage *args: (build-release args)
-    cp target/release/super-stt-backend-whisper super-stt-backend-whisper
-    @echo "staged super-stt-backend-whisper — this directory is now installable with Import from dir"
+    cp target/release/super-voice-backend-whisper super-voice-backend-whisper
+    @echo "staged super-voice-backend-whisper — this directory is now installable with Import from dir"
 
-# Runs a clippy check — mirrors super-stt's lint. There, `--all-features
+# Runs a clippy check — mirrors Super Voice's lint. There, `--all-features
 # --workspace` enables no CUDA (workspace crates have no cuda feature; the GPU
 # backends are out-of-tree), so the equivalent here is a default-feature (CPU)
 # lint, which still covers all of whisper's own code. Run `just check

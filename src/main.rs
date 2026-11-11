@@ -27,8 +27,8 @@ use serde_json::{Value, json};
 use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 
-use super_stt_backend_whisper::context;
-use super_stt_backend_whisper::inference::WhisperEngine;
+use super_voice_backend_whisper::context;
+use super_voice_backend_whisper::inference::WhisperEngine;
 
 /// This backend implements exactly one provider (the model routing class every
 /// one of its models declares). A `/v1/load` naming any other provider is
